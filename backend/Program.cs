@@ -8,10 +8,13 @@ using ProjectManager.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// IMPORTANT: Clear default URLs to prevent conflicts
+builder.WebHost.UseUrls(); // Clear any default URL configuration
+
 // Configure Kestrel to listen on PORT environment variable (required for Render)
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
     Console.WriteLine($"Starting server on port: {port}");
     serverOptions.ListenAnyIP(int.Parse(port));
 });
@@ -62,7 +65,7 @@ builder.Services.AddAuthentication(x =>
 })
 .AddJwtBearer(x =>
 {
-    x.RequireHttpsMetadata = true; // Enable HTTPS requirement in production
+    x.RequireHttpsMetadata = false;
     x.SaveToken = true;
     x.TokenValidationParameters = new TokenValidationParameters
     {
@@ -80,30 +83,39 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<ISchedulerService, SchedulerService>();
 
-// CORS - Production only
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',') 
-            ?? throw new InvalidOperationException("ALLOWED_ORIGINS environment variable is required");
+        var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
         
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        if (!string.IsNullOrEmpty(allowedOrigins))
+        {
+            Console.WriteLine($"CORS: Allowing origins: {allowedOrigins}");
+            policy.WithOrigins(allowedOrigins.Split(','))
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            Console.WriteLine("CORS: Allowing all origins");
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
 var app = builder.Build();
 
-// Enable Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+Console.WriteLine("Application started successfully");
 app.Run();
