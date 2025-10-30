@@ -11,7 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel to listen on PORT environment variable (required for Render)
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+    Console.WriteLine($"Starting server on port: {port}");
     serverOptions.ListenAnyIP(int.Parse(port));
 });
 
@@ -49,10 +50,9 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseInMemoryDatabase("ProjectManagerDb"));
 
-// Configure JWT Authentication - Use environment variable in production
+// Configure JWT Authentication - Use environment variable
 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") 
-    ?? builder.Configuration["Jwt:Key"] 
-    ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong!";
+    ?? throw new InvalidOperationException("JWT_KEY environment variable is required");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(x =>
@@ -62,7 +62,7 @@ builder.Services.AddAuthentication(x =>
 })
 .AddJwtBearer(x =>
 {
-    x.RequireHttpsMetadata = false;
+    x.RequireHttpsMetadata = true; // Enable HTTPS requirement in production
     x.SaveToken = true;
     x.TokenValidationParameters = new TokenValidationParameters
     {
@@ -80,13 +80,13 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<ISchedulerService, SchedulerService>();
 
-// CORS - Allow both local development and production
+// CORS - Production only
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(',') 
-            ?? new[] { "http://localhost:3000", "https://localhost:3000" };
+        var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',') 
+            ?? throw new InvalidOperationException("ALLOWED_ORIGINS environment variable is required");
         
         policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
@@ -95,20 +95,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure Kestrel to listen on PORT environment variable (required for Render)
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
-    serverOptions.ListenAnyIP(int.Parse(port));
-});
-
 var app = builder.Build();
 
-// Enable Swagger in all environments for Render
+// Enable Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors(); // IMPORTANT: Must be before UseAuthentication
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
