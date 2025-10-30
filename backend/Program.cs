@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel to listen on PORT environment variable (required for Render)
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
     serverOptions.ListenAnyIP(int.Parse(port));
 });
 
