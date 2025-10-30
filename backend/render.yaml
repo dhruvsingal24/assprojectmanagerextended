@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: project-manager-api
+    env: docker
+    plan: free
+    buildCommand: dotnet restore && dotnet publish -c Release -o out
+    startCommand: dotnet out/ProjectManager.dll
+    healthCheckPath: /swagger/index.html
+    envVars:
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: JWT_KEY
+        generateValue: true
+      - key: AllowedOrigins
+        value: https://your-frontend-url.com
